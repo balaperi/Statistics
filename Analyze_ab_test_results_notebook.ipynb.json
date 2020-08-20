@@ -1,0 +1,2626 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Analyze A/B Test Results\n",
+    "\n",
+    "\n",
+    "\n",
+    "## Table of Contents\n",
+    "- [Introduction](#intro)\n",
+    "- [Part I - Probability](#probability)\n",
+    "- [Part II - A/B Test](#ab_test)\n",
+    "- [Part III - Regression](#regression)\n",
+    "\n",
+    "\n",
+    "<a id='intro'></a>\n",
+    "### Introduction\n",
+    "\n",
+    "A/B tests are very commonly performed by data analysts and data scientists.  It is important that you get some practice working with the difficulties of these \n",
+    "\n",
+    "For this project, you will be working to understand the results of an A/B test run by an e-commerce website.  Your goal is to work through this notebook to help the company understand if they should implement the new page, keep the old page, or perhaps run the experiment longer to make their decision.\n",
+    "\n",
+    "**As you work through this notebook, follow along in the classroom and answer the corresponding quiz questions associated with each question.** The labels for each classroom concept are provided for each question.  This will assure you are on the right track as you work through the project, and you can feel more confident in your final submission meeting the criteria.  As a final check, assure you meet all the criteria on the [RUBRIC](https://review.udacity.com/#!/projects/37e27304-ad47-4eb0-a1ab-8c12f60e43d0/rubric).\n",
+    "\n",
+    "<a id='probability'></a>\n",
+    "#### Part I - Probability\n",
+    "\n",
+    "To get started, let's import our libraries."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 161,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "import random\n",
+    "import matplotlib.pyplot as plt\n",
+    "%matplotlib inline\n",
+    "#We are setting the seed to assure you get the same answers on quizzes as we set up\n",
+    "random.seed(42)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "`1.` Now, read in the `ab_data.csv` data. Store it in `df`.  **Use your dataframe to answer the questions in Quiz 1 of the classroom.**\n",
+    "\n",
+    "a. Read in the dataset and take a look at the top few rows here:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 162,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>user_id</th>\n",
+       "      <th>timestamp</th>\n",
+       "      <th>group</th>\n",
+       "      <th>landing_page</th>\n",
+       "      <th>converted</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>851104</td>\n",
+       "      <td>2017-01-21 22:11:48.556739</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>804228</td>\n",
+       "      <td>2017-01-12 08:01:45.159739</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>661590</td>\n",
+       "      <td>2017-01-11 16:55:06.154213</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>853541</td>\n",
+       "      <td>2017-01-08 18:28:03.143765</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>864975</td>\n",
+       "      <td>2017-01-21 01:52:26.210827</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   user_id                   timestamp      group landing_page  converted\n",
+       "0   851104  2017-01-21 22:11:48.556739    control     old_page          0\n",
+       "1   804228  2017-01-12 08:01:45.159739    control     old_page          0\n",
+       "2   661590  2017-01-11 16:55:06.154213  treatment     new_page          0\n",
+       "3   853541  2017-01-08 18:28:03.143765  treatment     new_page          0\n",
+       "4   864975  2017-01-21 01:52:26.210827    control     old_page          1"
+      ]
+     },
+     "execution_count": 162,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#loading data to dataframe\n",
+    "df=pd.read_csv('ab_data.csv')\n",
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "b. Use the cell below to find the number of rows in the dataset."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 163,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(294478, 5)"
+      ]
+     },
+     "execution_count": 163,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#ttoal number of rows n columns\n",
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "c. The number of unique users in the dataset."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 164,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "290584"
+      ]
+     },
+     "execution_count": 164,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#shows unique ids\n",
+    "df['user_id'].nunique()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "collapsed": true
+   },
+   "source": [
+    "d. The proportion of users converted."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 165,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "user_id         0.119659\n",
+       "timestamp       0.119659\n",
+       "group           0.119659\n",
+       "landing_page    0.119659\n",
+       "converted       0.119659\n",
+       "dtype: float64"
+      ]
+     },
+     "execution_count": 165,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#The proportion of users converted.\n",
+    "df.query('converted == 1').count()/df.count()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "collapsed": true
+   },
+   "source": [
+    "e. The number of times the `new_page` and `treatment` don't match."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 166,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "user_id         3893\n",
+       "timestamp       3893\n",
+       "group           3893\n",
+       "landing_page    3893\n",
+       "converted       3893\n",
+       "dtype: int64"
+      ]
+     },
+     "execution_count": 166,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#3893\n",
+    "#The number of times the new_page and treatment don't match.\n",
+    "(df.query('group== \"control\" & landing_page == \"new_page\"').count() +\n",
+    "df.query('group== \"treatment\" & landing_page == \"old_page\"').count())\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "f. Do any of the rows have missing values?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 167,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<class 'pandas.core.frame.DataFrame'>\n",
+      "RangeIndex: 294478 entries, 0 to 294477\n",
+      "Data columns (total 5 columns):\n",
+      "user_id         294478 non-null int64\n",
+      "timestamp       294478 non-null object\n",
+      "group           294478 non-null object\n",
+      "landing_page    294478 non-null object\n",
+      "converted       294478 non-null int64\n",
+      "dtypes: int64(2), object(3)\n",
+      "memory usage: 11.2+ MB\n"
+     ]
+    }
+   ],
+   "source": [
+    "#checking for missing values\n",
+    "df.info()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "`2.` For the rows where **treatment** does not match with **new_page** or **control** does not match with **old_page**, we cannot be sure if this row truly received the new or old page.  Use **Quiz 2** in the classroom to figure out how we should handle these rows.  \n",
+    "\n",
+    "a. Now use the answer to the quiz to create a new dataset that meets the specifications from the quiz.  Store your new dataframe in **df2**."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 168,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "user_id         3893\n",
+       "timestamp       3893\n",
+       "group           3893\n",
+       "landing_page    3893\n",
+       "converted       3893\n",
+       "dtype: int64"
+      ]
+     },
+     "execution_count": 168,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "(df.query('group== \"treatment\" & landing_page == \"old_page\"').count() +\n",
+    "df.query('group== \"control\" & landing_page == \"new_page\"').count())"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 169,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df1=df.drop(df.query('group== \"treatment\" & landing_page == \"old_page\"').index)\n",
+    "df2=df1.drop(df.query('group== \"control\" & landing_page == \"new_page\"').index)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 170,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0"
+      ]
+     },
+     "execution_count": 170,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# Double Check all of the correct rows were removed - this should be 0\n",
+    "df2[((df2['group'] == 'treatment') == (df2['landing_page'] == 'new_page')) == False].shape[0]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 171,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>user_id</th>\n",
+       "      <th>timestamp</th>\n",
+       "      <th>group</th>\n",
+       "      <th>landing_page</th>\n",
+       "      <th>converted</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>851104</td>\n",
+       "      <td>2017-01-21 22:11:48.556739</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>804228</td>\n",
+       "      <td>2017-01-12 08:01:45.159739</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>661590</td>\n",
+       "      <td>2017-01-11 16:55:06.154213</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>853541</td>\n",
+       "      <td>2017-01-08 18:28:03.143765</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>864975</td>\n",
+       "      <td>2017-01-21 01:52:26.210827</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   user_id                   timestamp      group landing_page  converted\n",
+       "0   851104  2017-01-21 22:11:48.556739    control     old_page          0\n",
+       "1   804228  2017-01-12 08:01:45.159739    control     old_page          0\n",
+       "2   661590  2017-01-11 16:55:06.154213  treatment     new_page          0\n",
+       "3   853541  2017-01-08 18:28:03.143765  treatment     new_page          0\n",
+       "4   864975  2017-01-21 01:52:26.210827    control     old_page          1"
+      ]
+     },
+     "execution_count": 171,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df2.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "`3.` Use **df2** and the cells below to answer questions for **Quiz3** in the classroom."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "a. How many unique **user_id**s are in **df2**?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 172,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "290584"
+      ]
+     },
+     "execution_count": 172,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#checking for unique records\n",
+    "df2.user_id.nunique()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "collapsed": true
+   },
+   "source": [
+    "b. There is one **user_id** repeated in **df2**.  What is it?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 173,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>user_id</th>\n",
+       "      <th>timestamp</th>\n",
+       "      <th>group</th>\n",
+       "      <th>landing_page</th>\n",
+       "      <th>converted</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>1899</th>\n",
+       "      <td>773192</td>\n",
+       "      <td>2017-01-09 05:37:58.781806</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2893</th>\n",
+       "      <td>773192</td>\n",
+       "      <td>2017-01-14 02:55:59.590927</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "      user_id                   timestamp      group landing_page  converted\n",
+       "1899   773192  2017-01-09 05:37:58.781806  treatment     new_page          0\n",
+       "2893   773192  2017-01-14 02:55:59.590927  treatment     new_page          0"
+      ]
+     },
+     "execution_count": 173,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#checking for duplicated\n",
+    "df2[df2.duplicated(['user_id'],keep=False)]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "c. What is the row information for the repeat **user_id**? "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "collapsed": true
+   },
+   "source": [
+    "rows 1899,2893"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "d. Remove **one** of the rows with a duplicate **user_id**, but keep your dataframe as **df2**."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 174,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#drop one of the dupliactes\n",
+    "df2.drop(labels=2893,inplace=True)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "`4.` Use **df2** in the cells below to answer the quiz questions related to **Quiz 4** in the classroom.\n",
+    "\n",
+    "a. What is the probability of an individual converting regardless of the page they receive?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 175,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.11959708724499628"
+      ]
+     },
+     "execution_count": 175,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#total conversion mean\n",
+    "df2.converted.mean()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "b. Given that an individual was in the `control` group, what is the probability they converted?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 176,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.1203863045004612"
+      ]
+     },
+     "execution_count": 176,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#control grp converted mean\n",
+    "df2.query('group == \"control\"')['converted'].mean()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "c. Given that an individual was in the `treatment` group, what is the probability they converted?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 177,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.11880806551510564"
+      ]
+     },
+     "execution_count": 177,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#treatment grp converted mean\n",
+    "df2.query('group == \"treatment\"')['converted'].mean()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "d. What is the probability that an individual received the new page?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 178,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "user_id         0.500062\n",
+       "timestamp       0.500062\n",
+       "group           0.500062\n",
+       "landing_page    0.500062\n",
+       "converted       0.500062\n",
+       "dtype: float64"
+      ]
+     },
+     "execution_count": 178,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#probability that an individual received the new page\n",
+    "df2.query('landing_page == \"new_page\"').count()/df2.landing_page.count()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "e. Consider your results from parts (a) through (d) above, and explain below whether you think there is sufficient evidence to conclude that the new treatment page leads to more conversions."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**No there is no sufficient evidence to say that the new page leads to more conversions as 12% of the control group  and 11.8% of the treatement group only converted,which insists that new page did not increase the conversion.**"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "<a id='ab_test'></a>\n",
+    "### Part II - A/B Test\n",
+    "\n",
+    "Notice that because of the time stamp associated with each event, you could technically run a hypothesis test continuously as each observation was observed.  \n",
+    "\n",
+    "However, then the hard question is do you stop as soon as one page is considered significantly better than another or does it need to happen consistently for a certain amount of time?  How long do you run to render a decision that neither page is better than another?  \n",
+    "\n",
+    "These questions are the difficult parts associated with A/B tests in general.  \n",
+    "\n",
+    "\n",
+    "`1.` For now, consider you need to make the decision just based on all the data provided.  If you want to assume that the old page is better unless the new page proves to be definitely better at a Type I error rate of 5%, what should your null and alternative hypotheses be?  You can state your hypothesis in terms of words or in terms of **$p_{old}$** and **$p_{new}$**, which are the converted rates for the old and new pages."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**Null hypothesis-the conversion rate of old page is greater that or same as the conversion of new page.**\n",
+    "\n",
+    "**Alternate hypothesis - the conversion of new page is greater than the old page**"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "`2.` Assume under the null hypothesis, $p_{new}$ and $p_{old}$ both have \"true\" success rates equal to the **converted** success rate regardless of page - that is $p_{new}$ and $p_{old}$ are equal. Furthermore, assume they are equal to the **converted** rate in **ab_data.csv** regardless of the page. <br><br>\n",
+    "\n",
+    "Use a sample size for each page equal to the ones in **ab_data.csv**.  <br><br>\n",
+    "\n",
+    "Perform the sampling distribution for the difference in **converted** between the two pages over 10,000 iterations of calculating an estimate from the null.  <br><br>\n",
+    "\n",
+    "Use the cells below to provide the necessary parts of this simulation.  If this doesn't make complete sense right now, don't worry - you are going to work through the problems below to complete this problem.  You can use **Quiz 5** in the classroom to make sure you are on the right track.<br><br>"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "a. What is the **conversion rate** for $p_{new}$ under the null? "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 179,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.11959708724499628"
+      ]
+     },
+     "execution_count": 179,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#p_new converted rate under null\n",
+    "p_new_rate=df2.converted.mean()\n",
+    "p_new_rate"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "b. What is the **conversion rate** for $p_{old}$ under the null? <br><br>"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 180,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.11959708724499628"
+      ]
+     },
+     "execution_count": 180,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#p_old converted rate under null\n",
+    "p_old_rate=df2.converted.mean()\n",
+    "p_old_rate"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "c. What is $n_{new}$, the number of individuals in the treatment group?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 181,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "145310"
+      ]
+     },
+     "execution_count": 181,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#the number of individuals in the treatment group\n",
+    "n_new=len(df2.query('group == \"treatment\"'))\n",
+    "n_new"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "d. What is $n_{old}$, the number of individuals in the control group?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 182,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "145274"
+      ]
+     },
+     "execution_count": 182,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#the number of individuals in the control group\n",
+    "n_old=len(df2.query('group == \"control\"'))\n",
+    "n_old"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "e. Simulate $n_{new}$ transactions with a conversion rate of $p_{new}$ under the null.  Store these $n_{new}$ 1's and 0's in **new_page_converted**."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 183,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.11771385314155942"
+      ]
+     },
+     "execution_count": 183,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#new_page_converted mean\n",
+    "\n",
+    "new_page_converted=np.random.binomial(1,p_new_rate,n_new)\n",
+    "new_page_converted.mean()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "f. Simulate $n_{old}$ transactions with a conversion rate of $p_{old}$ under the null.  Store these $n_{old}$ 1's and 0's in **old_page_converted**."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 184,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.12065476272423145"
+      ]
+     },
+     "execution_count": 184,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#old_page converted mean\n",
+    "old_page_converted=np.random.binomial(1,p_old_rate,n_old)\n",
+    "old_page_converted.mean()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "g. Find $p_{new}$ - $p_{old}$ for your simulated values from part (e) and (f)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 185,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "-0.0029409095826720272"
+      ]
+     },
+     "execution_count": 185,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#diff in old and new page converted mean\n",
+    "new_page_converted.mean() - old_page_converted.mean()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "h. Create 10,000 $p_{new}$ - $p_{old}$ values using the same simulation process you used in parts (a) through (g) above. Store all 10,000 values in a NumPy array called **p_diffs**."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 186,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "p_diffs=[]\n",
+    "for i in range(10000):\n",
+    "    new_page_converted=np.random.binomial(1,p_new_rate,n_new).mean()\n",
+    "    old_page_converted=np.random.binomial(1,p_old_rate,n_old).mean()\n",
+    "    p_diffs.append(new_page_converted - old_page_converted)\n",
+    "    "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "i. Plot a histogram of the **p_diffs**.  Does this plot look like what you expected?  Use the matching problem in the classroom to assure you fully understand what was computed here."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 187,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<matplotlib.figure.Figure at 0x7fa0ccaf1dd8>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "#convert into array\n",
+    "p_diffs=np.array(p_diffs)\n",
+    "\n",
+    "#null_vals=np.random.normal(0,p_diffs.std(),p_diffs.size)\n",
+    "#plot \n",
+    "plt.hist(p_diffs)\n",
+    "plt.xlabel('p_diffs')\n",
+    "plt.ylabel('Frequency')\n",
+    "plt.title('Simulated Difference of new_page & old_page converted under the Null');"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "j. What proportion of the **p_diffs** are greater than the actual difference observed in **ab_data.csv**?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 188,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "-0.0015782389853555567"
+      ]
+     },
+     "execution_count": 188,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#calculate observed mean\n",
+    "df_control=df2.query('group==\"control\"')\n",
+    "df_treatment=df2.query('group==\"treatment\"')\n",
+    "\n",
+    "obs_diff=df_treatment.converted.mean() - df_control.converted.mean()\n",
+    "obs_diff"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 189,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<matplotlib.figure.Figure at 0x7fa0c7d422e8>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "#plot line for observed statistic\n",
+    "plt.hist(p_diffs)\n",
+    "plt.axvline(x=obs_diff,color='r',label=\"Observed Difference\")\n",
+    "plt.xlabel('obs_diffs')\n",
+    "plt.ylabel('Frequency')\n",
+    "plt.title('Simulated Difference of new_page & old_page converted under the Null');\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 190,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.90549999999999997"
+      ]
+     },
+     "execution_count": 190,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#calculate the proportion of diffrence in mean \n",
+    "(p_diffs > obs_diff).mean()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "k. Please explain using the vocabulary you've learned in this course what you just computed in part **j.**  What is this value called in scientific studies?  What does this value mean in terms of whether or not there is a difference between the new and old pages?"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**90.8% is the proportion of p_diffs greater than the actual observed difference in  ab_data.csv.The value in is called p-value.p-value means that null cannot be rejected and there is no evidence that new page has higher conversion rate than the old page.**"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "l. We could also use a built-in to achieve similar results.  Though using the built-in might be easier to code, the above portions are a walkthrough of the ideas that are critical to correctly thinking about statistical significance. Fill in the below to calculate the number of conversions for each page, as well as the number of individuals who received each page. Let `n_old` and `n_new` refer the the number of rows associated with the old page and new pages, respectively."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 191,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>user_id</th>\n",
+       "      <th>timestamp</th>\n",
+       "      <th>group</th>\n",
+       "      <th>landing_page</th>\n",
+       "      <th>converted</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>851104</td>\n",
+       "      <td>2017-01-21 22:11:48.556739</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>804228</td>\n",
+       "      <td>2017-01-12 08:01:45.159739</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>661590</td>\n",
+       "      <td>2017-01-11 16:55:06.154213</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>853541</td>\n",
+       "      <td>2017-01-08 18:28:03.143765</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>864975</td>\n",
+       "      <td>2017-01-21 01:52:26.210827</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   user_id                   timestamp      group landing_page  converted\n",
+       "0   851104  2017-01-21 22:11:48.556739    control     old_page          0\n",
+       "1   804228  2017-01-12 08:01:45.159739    control     old_page          0\n",
+       "2   661590  2017-01-11 16:55:06.154213  treatment     new_page          0\n",
+       "3   853541  2017-01-08 18:28:03.143765  treatment     new_page          0\n",
+       "4   864975  2017-01-21 01:52:26.210827    control     old_page          1"
+      ]
+     },
+     "execution_count": 191,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df2.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 192,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import statsmodels.api as sm\n",
+    "from scipy import stats\n",
+    "stats.chisqprob = lambda chisq, df: stats.chi2.sf(chisq, df)\n",
+    "\n",
+    "\n",
+    "convert_old = len(df2.query('landing_page==\"old_page\" and converted==1' ))\n",
+    "convert_new = len(df2.query('landing_page==\"new_page\" and converted==1' ))\n",
+    "n_old = len(df2.query('landing_page==\"old_page\"'))\n",
+    "n_new = len(df2.query('landing_page==\"new_page\"'))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 193,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(17489, 17264)"
+      ]
+     },
+     "execution_count": 193,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "convert_old,convert_new"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 194,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(145274, 145310)"
+      ]
+     },
+     "execution_count": 194,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "n_old,n_new"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "m. Now use `stats.proportions_ztest` to compute your test statistic and p-value.  [Here](https://docs.w3cub.com/statsmodels/generated/statsmodels.stats.proportion.proportions_ztest/) is a helpful link on using the built in."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 195,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(1.3109241984234394, 0.90505831275902449)"
+      ]
+     },
+     "execution_count": 195,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "z_score, p_value=sm.stats.proportions_ztest([convert_old,convert_new],[n_old,n_new],value=None,alternative='smaller',prop_var=False)\n",
+    "z_score, p_value"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "n. What do the z-score and p-value you computed in the previous question mean for the conversion rates of the old and new pages?  Do they agree with the findings in parts **j.** and **k.**?"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**z_score and p_value shows that null cannot be rejected.As p_value >0.05 and alternative new page conversion rate of 91% is not sufficient to launch the new page**"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "<a id='regression'></a>\n",
+    "### Part III - A regression approach\n",
+    "\n",
+    "`1.` In this final part, you will see that the result you achieved in the A/B test in Part II above can also be achieved by performing regression.<br><br> \n",
+    "\n",
+    "a. Since each row is either a conversion or no conversion, what type of regression should you be performing in this case?"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**The dependant variable is a categorical variable,so logistic regression should be used.**"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "b. The goal is to use **statsmodels** to fit the regression model you specified in part **a.** to see if there is a significant difference in conversion based on which page a customer receives. However, you first need to create in df2 a column for the intercept, and create a dummy variable column for which page each user received.  Add an **intercept** column, as well as an **ab_page** column, which is 1 when an individual receives the **treatment** and 0 if **control**."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 196,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#create dummies for group column\n",
+    "df2[['control','treatment']]=pd.get_dummies(df2['group'])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 197,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>user_id</th>\n",
+       "      <th>timestamp</th>\n",
+       "      <th>group</th>\n",
+       "      <th>landing_page</th>\n",
+       "      <th>converted</th>\n",
+       "      <th>treatment</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>851104</td>\n",
+       "      <td>2017-01-21 22:11:48.556739</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>804228</td>\n",
+       "      <td>2017-01-12 08:01:45.159739</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>661590</td>\n",
+       "      <td>2017-01-11 16:55:06.154213</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>853541</td>\n",
+       "      <td>2017-01-08 18:28:03.143765</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>864975</td>\n",
+       "      <td>2017-01-21 01:52:26.210827</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   user_id                   timestamp      group landing_page  converted  \\\n",
+       "0   851104  2017-01-21 22:11:48.556739    control     old_page          0   \n",
+       "1   804228  2017-01-12 08:01:45.159739    control     old_page          0   \n",
+       "2   661590  2017-01-11 16:55:06.154213  treatment     new_page          0   \n",
+       "3   853541  2017-01-08 18:28:03.143765  treatment     new_page          0   \n",
+       "4   864975  2017-01-21 01:52:26.210827    control     old_page          1   \n",
+       "\n",
+       "   treatment  \n",
+       "0          0  \n",
+       "1          0  \n",
+       "2          1  \n",
+       "3          1  \n",
+       "4          0  "
+      ]
+     },
+     "execution_count": 197,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#drop control page\n",
+    "df2=df2.drop(labels='control',axis=1)\n",
+    "df2.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 198,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>user_id</th>\n",
+       "      <th>timestamp</th>\n",
+       "      <th>group</th>\n",
+       "      <th>landing_page</th>\n",
+       "      <th>converted</th>\n",
+       "      <th>ab_page</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>851104</td>\n",
+       "      <td>2017-01-21 22:11:48.556739</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>804228</td>\n",
+       "      <td>2017-01-12 08:01:45.159739</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>661590</td>\n",
+       "      <td>2017-01-11 16:55:06.154213</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>853541</td>\n",
+       "      <td>2017-01-08 18:28:03.143765</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>864975</td>\n",
+       "      <td>2017-01-21 01:52:26.210827</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   user_id                   timestamp      group landing_page  converted  \\\n",
+       "0   851104  2017-01-21 22:11:48.556739    control     old_page          0   \n",
+       "1   804228  2017-01-12 08:01:45.159739    control     old_page          0   \n",
+       "2   661590  2017-01-11 16:55:06.154213  treatment     new_page          0   \n",
+       "3   853541  2017-01-08 18:28:03.143765  treatment     new_page          0   \n",
+       "4   864975  2017-01-21 01:52:26.210827    control     old_page          1   \n",
+       "\n",
+       "   ab_page  \n",
+       "0        0  \n",
+       "1        0  \n",
+       "2        1  \n",
+       "3        1  \n",
+       "4        0  "
+      ]
+     },
+     "execution_count": 198,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#rename treatment to ab_page\n",
+    "df3=df2.rename(columns={'treatment':'ab_page'})\n",
+    "df3.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "c. Use **statsmodels** to instantiate your regression model on the two columns you created in part b., then fit the model using the two columns you created in part **b.** to predict whether or not an individual converts. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 199,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import statsmodels.api as sm\n",
+    "from scipy import stats\n",
+    "stats.chisqprob = lambda chisq, df: stats.chi2.sf(chisq, df)\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "d. Provide the summary of your model below, and use it as necessary to answer the following questions."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 200,
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Optimization terminated successfully.\n",
+      "         Current function value: 0.366118\n",
+      "         Iterations 6\n"
+     ]
+    },
+    {
+     "data": {
+      "text/html": [
+       "<table class=\"simpletable\">\n",
+       "<caption>Logit Regression Results</caption>\n",
+       "<tr>\n",
+       "  <th>Dep. Variable:</th>     <td>converted</td>    <th>  No. Observations:  </th>   <td>290584</td>   \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Model:</th>               <td>Logit</td>      <th>  Df Residuals:      </th>   <td>290582</td>   \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Method:</th>               <td>MLE</td>       <th>  Df Model:          </th>   <td>     1</td>   \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Date:</th>          <td>Thu, 20 Aug 2020</td> <th>  Pseudo R-squ.:     </th>  <td>8.077e-06</td> \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Time:</th>              <td>20:01:04</td>     <th>  Log-Likelihood:    </th> <td>-1.0639e+05</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>converged:</th>           <td>True</td>       <th>  LL-Null:           </th> <td>-1.0639e+05</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th> </th>                      <td> </td>        <th>  LLR p-value:       </th>   <td>0.1899</td>   \n",
+       "</tr>\n",
+       "</table>\n",
+       "<table class=\"simpletable\">\n",
+       "<tr>\n",
+       "      <td></td>         <th>coef</th>     <th>std err</th>      <th>z</th>      <th>P>|z|</th>  <th>[0.025</th>    <th>0.975]</th>  \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>intercept</th> <td>   -1.9888</td> <td>    0.008</td> <td> -246.669</td> <td> 0.000</td> <td>   -2.005</td> <td>   -1.973</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>ab_page</th>   <td>   -0.0150</td> <td>    0.011</td> <td>   -1.311</td> <td> 0.190</td> <td>   -0.037</td> <td>    0.007</td>\n",
+       "</tr>\n",
+       "</table>"
+      ],
+      "text/plain": [
+       "<class 'statsmodels.iolib.summary.Summary'>\n",
+       "\"\"\"\n",
+       "                           Logit Regression Results                           \n",
+       "==============================================================================\n",
+       "Dep. Variable:              converted   No. Observations:               290584\n",
+       "Model:                          Logit   Df Residuals:                   290582\n",
+       "Method:                           MLE   Df Model:                            1\n",
+       "Date:                Thu, 20 Aug 2020   Pseudo R-squ.:               8.077e-06\n",
+       "Time:                        20:01:04   Log-Likelihood:            -1.0639e+05\n",
+       "converged:                       True   LL-Null:                   -1.0639e+05\n",
+       "                                        LLR p-value:                    0.1899\n",
+       "==============================================================================\n",
+       "                 coef    std err          z      P>|z|      [0.025      0.975]\n",
+       "------------------------------------------------------------------------------\n",
+       "intercept     -1.9888      0.008   -246.669      0.000      -2.005      -1.973\n",
+       "ab_page       -0.0150      0.011     -1.311      0.190      -0.037       0.007\n",
+       "==============================================================================\n",
+       "\"\"\""
+      ]
+     },
+     "execution_count": 200,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#fit line\n",
+    "df3['intercept']=1\n",
+    "logit_mod=sm.Logit(df3['converted'],df3[['intercept','ab_page']])\n",
+    "results=logit_mod.fit()\n",
+    "results.summary()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "e. What is the p-value associated with **ab_page**? Why does it differ from the value you found in **Part II**?<br><br>  **Hint**: What are the null and alternative hypotheses associated with your regression model, and how do they compare to the null and alternative hypotheses in **Part II**?"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**p_value associated with ab_page is 0.19 which is greater than 0.05.the cofficient is not significant.\n",
+    "The alternate hypothesis in partII is 90.5% which is again not enough to conclude that conversion to new page is high.\n",
+    "so in both hypothesis testing and logistic regression model,there is no evidence that the new page conversion rate is significant.**"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "f. Now, you are considering other things that might influence whether or not an individual converts.  Discuss why it is a good idea to consider other factors to add into your regression model.  Are there any disadvantages to adding additional terms into your regression model?"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**It is a good idea to consider other factors to get to a conclusion on deciding old_page vs new_page conversion.\n",
+    "The only disadvantage is model become complex**"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "g. Now along with testing if the conversion rate changes for different pages, also add an effect based on which country a user lives in. You will need to read in the **countries.csv** dataset and merge together your datasets on the appropriate rows.  [Here](https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.join.html) are the docs for joining tables. \n",
+    "\n",
+    "Does it appear that country had an impact on conversion?  Don't forget to create dummy variables for these country columns - **Hint: You will need two columns for the three dummy variables.** Provide the statistical output as well as a written response to answer this question."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 201,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>country</th>\n",
+       "      <th>timestamp</th>\n",
+       "      <th>group</th>\n",
+       "      <th>landing_page</th>\n",
+       "      <th>converted</th>\n",
+       "      <th>ab_page</th>\n",
+       "      <th>intercept</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>user_id</th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>834778</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-14 23:08:43.304998</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>928468</th>\n",
+       "      <td>US</td>\n",
+       "      <td>2017-01-23 14:44:16.387854</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>822059</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-16 14:04:14.719771</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>711597</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-22 03:14:24.763511</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>710616</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-16 13:14:44.000513</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "        country                   timestamp      group landing_page  \\\n",
+       "user_id                                                               \n",
+       "834778       UK  2017-01-14 23:08:43.304998    control     old_page   \n",
+       "928468       US  2017-01-23 14:44:16.387854  treatment     new_page   \n",
+       "822059       UK  2017-01-16 14:04:14.719771  treatment     new_page   \n",
+       "711597       UK  2017-01-22 03:14:24.763511    control     old_page   \n",
+       "710616       UK  2017-01-16 13:14:44.000513  treatment     new_page   \n",
+       "\n",
+       "         converted  ab_page  intercept  \n",
+       "user_id                                 \n",
+       "834778           0        0          1  \n",
+       "928468           0        1          1  \n",
+       "822059           1        1          1  \n",
+       "711597           0        0          1  \n",
+       "710616           0        1          1  "
+      ]
+     },
+     "execution_count": 201,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#load the countries data into dataframe and join with df3.\n",
+    "df_countries = pd.read_csv('./countries.csv')\n",
+    "df_new=df_countries.set_index('user_id').join(df3.set_index('user_id'), how='inner')\n",
+    "df_new.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 202,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "US    203619\n",
+       "UK     72466\n",
+       "CA     14499\n",
+       "Name: country, dtype: int64"
+      ]
+     },
+     "execution_count": 202,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df_new['country'].value_counts()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 203,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>country</th>\n",
+       "      <th>timestamp</th>\n",
+       "      <th>group</th>\n",
+       "      <th>landing_page</th>\n",
+       "      <th>converted</th>\n",
+       "      <th>ab_page</th>\n",
+       "      <th>intercept</th>\n",
+       "      <th>US</th>\n",
+       "      <th>UK</th>\n",
+       "      <th>CA</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>user_id</th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>834778</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-14 23:08:43.304998</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>928468</th>\n",
+       "      <td>US</td>\n",
+       "      <td>2017-01-23 14:44:16.387854</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>822059</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-16 14:04:14.719771</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>711597</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-22 03:14:24.763511</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>710616</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-16 13:14:44.000513</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "        country                   timestamp      group landing_page  \\\n",
+       "user_id                                                               \n",
+       "834778       UK  2017-01-14 23:08:43.304998    control     old_page   \n",
+       "928468       US  2017-01-23 14:44:16.387854  treatment     new_page   \n",
+       "822059       UK  2017-01-16 14:04:14.719771  treatment     new_page   \n",
+       "711597       UK  2017-01-22 03:14:24.763511    control     old_page   \n",
+       "710616       UK  2017-01-16 13:14:44.000513  treatment     new_page   \n",
+       "\n",
+       "         converted  ab_page  intercept  US  UK  CA  \n",
+       "user_id                                             \n",
+       "834778           0        0          1   0   1   0  \n",
+       "928468           0        1          1   0   0   1  \n",
+       "822059           1        1          1   0   1   0  \n",
+       "711597           0        0          1   0   1   0  \n",
+       "710616           0        1          1   0   1   0  "
+      ]
+     },
+     "execution_count": 203,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#create dummies for country\n",
+    "df_new[['US','UK','CA']]=pd.get_dummies(df_new['country'])\n",
+    "df_new.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 204,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Optimization terminated successfully.\n",
+      "         Current function value: 0.366113\n",
+      "         Iterations 6\n"
+     ]
+    },
+    {
+     "data": {
+      "text/html": [
+       "<table class=\"simpletable\">\n",
+       "<caption>Logit Regression Results</caption>\n",
+       "<tr>\n",
+       "  <th>Dep. Variable:</th>     <td>converted</td>    <th>  No. Observations:  </th>   <td>290584</td>   \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Model:</th>               <td>Logit</td>      <th>  Df Residuals:      </th>   <td>290580</td>   \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Method:</th>               <td>MLE</td>       <th>  Df Model:          </th>   <td>     3</td>   \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Date:</th>          <td>Thu, 20 Aug 2020</td> <th>  Pseudo R-squ.:     </th>  <td>2.323e-05</td> \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Time:</th>              <td>20:01:05</td>     <th>  Log-Likelihood:    </th> <td>-1.0639e+05</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>converged:</th>           <td>True</td>       <th>  LL-Null:           </th> <td>-1.0639e+05</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th> </th>                      <td> </td>        <th>  LLR p-value:       </th>   <td>0.1760</td>   \n",
+       "</tr>\n",
+       "</table>\n",
+       "<table class=\"simpletable\">\n",
+       "<tr>\n",
+       "      <td></td>         <th>coef</th>     <th>std err</th>      <th>z</th>      <th>P>|z|</th>  <th>[0.025</th>    <th>0.975]</th>  \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>intercept</th> <td>   -2.0300</td> <td>    0.027</td> <td>  -76.249</td> <td> 0.000</td> <td>   -2.082</td> <td>   -1.978</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>ab_page</th>   <td>   -0.0149</td> <td>    0.011</td> <td>   -1.307</td> <td> 0.191</td> <td>   -0.037</td> <td>    0.007</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>UK</th>        <td>    0.0506</td> <td>    0.028</td> <td>    1.784</td> <td> 0.074</td> <td>   -0.005</td> <td>    0.106</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>CA</th>        <td>    0.0408</td> <td>    0.027</td> <td>    1.516</td> <td> 0.130</td> <td>   -0.012</td> <td>    0.093</td>\n",
+       "</tr>\n",
+       "</table>"
+      ],
+      "text/plain": [
+       "<class 'statsmodels.iolib.summary.Summary'>\n",
+       "\"\"\"\n",
+       "                           Logit Regression Results                           \n",
+       "==============================================================================\n",
+       "Dep. Variable:              converted   No. Observations:               290584\n",
+       "Model:                          Logit   Df Residuals:                   290580\n",
+       "Method:                           MLE   Df Model:                            3\n",
+       "Date:                Thu, 20 Aug 2020   Pseudo R-squ.:               2.323e-05\n",
+       "Time:                        20:01:05   Log-Likelihood:            -1.0639e+05\n",
+       "converged:                       True   LL-Null:                   -1.0639e+05\n",
+       "                                        LLR p-value:                    0.1760\n",
+       "==============================================================================\n",
+       "                 coef    std err          z      P>|z|      [0.025      0.975]\n",
+       "------------------------------------------------------------------------------\n",
+       "intercept     -2.0300      0.027    -76.249      0.000      -2.082      -1.978\n",
+       "ab_page       -0.0149      0.011     -1.307      0.191      -0.037       0.007\n",
+       "UK             0.0506      0.028      1.784      0.074      -0.005       0.106\n",
+       "CA             0.0408      0.027      1.516      0.130      -0.012       0.093\n",
+       "==============================================================================\n",
+       "\"\"\""
+      ]
+     },
+     "execution_count": 204,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#fit the model\n",
+    "df_new['intercept']=1\n",
+    "logit_mod=sm.Logit(df_new['converted'],df_new[['intercept','ab_page','UK','CA']])\n",
+    "results=logit_mod.fit()\n",
+    "results.summary()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "**The addition of country to the model doesnt have any impact as the p_values for UK=.074 and CA=0.130 is greater than 0.05%.**"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "h. Though you have now looked at the individual factors of country and page on conversion, we would now like to look at an interaction between page and country to see if there significant effects on conversion.  Create the necessary additional columns, and fit the new model.  \n",
+    "\n",
+    "Provide the summary results, and your conclusions based on the results."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 205,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>country</th>\n",
+       "      <th>ab_page</th>\n",
+       "      <th>converted</th>\n",
+       "      <th>intercept</th>\n",
+       "      <th>US</th>\n",
+       "      <th>UK</th>\n",
+       "      <th>CA</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>CA</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0.118783</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>CA</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0.111902</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0.120022</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0.121171</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>US</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0.120630</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>5</th>\n",
+       "      <td>US</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0.118466</td>\n",
+       "      <td>1.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "  country  ab_page  converted  intercept  US  UK  CA\n",
+       "0      CA        0   0.118783        1.0   1   0   0\n",
+       "1      CA        1   0.111902        1.0   1   0   0\n",
+       "2      UK        0   0.120022        1.0   0   1   0\n",
+       "3      UK        1   0.121171        1.0   0   1   0\n",
+       "4      US        0   0.120630        1.0   0   0   1\n",
+       "5      US        1   0.118466        1.0   0   0   1"
+      ]
+     },
+     "execution_count": 205,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df_new.groupby(['country','ab_page'],as_index=False).mean()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "For interactions,I am taking UK and CA for the ab_page."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 206,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>country</th>\n",
+       "      <th>timestamp</th>\n",
+       "      <th>group</th>\n",
+       "      <th>landing_page</th>\n",
+       "      <th>converted</th>\n",
+       "      <th>ab_page</th>\n",
+       "      <th>intercept</th>\n",
+       "      <th>US</th>\n",
+       "      <th>UK</th>\n",
+       "      <th>CA</th>\n",
+       "      <th>interactions_uk_page</th>\n",
+       "      <th>interactions_ca_page</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>user_id</th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>834778</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-14 23:08:43.304998</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>928468</th>\n",
+       "      <td>US</td>\n",
+       "      <td>2017-01-23 14:44:16.387854</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>822059</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-16 14:04:14.719771</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>711597</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-22 03:14:24.763511</td>\n",
+       "      <td>control</td>\n",
+       "      <td>old_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>710616</th>\n",
+       "      <td>UK</td>\n",
+       "      <td>2017-01-16 13:14:44.000513</td>\n",
+       "      <td>treatment</td>\n",
+       "      <td>new_page</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "        country                   timestamp      group landing_page  \\\n",
+       "user_id                                                               \n",
+       "834778       UK  2017-01-14 23:08:43.304998    control     old_page   \n",
+       "928468       US  2017-01-23 14:44:16.387854  treatment     new_page   \n",
+       "822059       UK  2017-01-16 14:04:14.719771  treatment     new_page   \n",
+       "711597       UK  2017-01-22 03:14:24.763511    control     old_page   \n",
+       "710616       UK  2017-01-16 13:14:44.000513  treatment     new_page   \n",
+       "\n",
+       "         converted  ab_page  intercept  US  UK  CA  interactions_uk_page  \\\n",
+       "user_id                                                                    \n",
+       "834778           0        0          1   0   1   0                     0   \n",
+       "928468           0        1          1   0   0   1                     0   \n",
+       "822059           1        1          1   0   1   0                     1   \n",
+       "711597           0        0          1   0   1   0                     0   \n",
+       "710616           0        1          1   0   1   0                     1   \n",
+       "\n",
+       "         interactions_ca_page  \n",
+       "user_id                        \n",
+       "834778                      0  \n",
+       "928468                      1  \n",
+       "822059                      0  \n",
+       "711597                      0  \n",
+       "710616                      0  "
+      ]
+     },
+     "execution_count": 206,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#interaction between UK and page,CA and page\n",
+    "df_new['interactions_uk_page']=df_new.UK * df_new.ab_page\n",
+    "df_new['interactions_ca_page']=df_new.CA * df_new.ab_page\n",
+    "df_new.head()\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 207,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Optimization terminated successfully.\n",
+      "         Current function value: 0.366109\n",
+      "         Iterations 6\n"
+     ]
+    },
+    {
+     "data": {
+      "text/html": [
+       "<table class=\"simpletable\">\n",
+       "<caption>Logit Regression Results</caption>\n",
+       "<tr>\n",
+       "  <th>Dep. Variable:</th>     <td>converted</td>    <th>  No. Observations:  </th>   <td>290584</td>   \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Model:</th>               <td>Logit</td>      <th>  Df Residuals:      </th>   <td>290578</td>   \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Method:</th>               <td>MLE</td>       <th>  Df Model:          </th>   <td>     5</td>   \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Date:</th>          <td>Thu, 20 Aug 2020</td> <th>  Pseudo R-squ.:     </th>  <td>3.482e-05</td> \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>Time:</th>              <td>20:01:06</td>     <th>  Log-Likelihood:    </th> <td>-1.0639e+05</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>converged:</th>           <td>True</td>       <th>  LL-Null:           </th> <td>-1.0639e+05</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th> </th>                      <td> </td>        <th>  LLR p-value:       </th>   <td>0.1920</td>   \n",
+       "</tr>\n",
+       "</table>\n",
+       "<table class=\"simpletable\">\n",
+       "<tr>\n",
+       "            <td></td>              <th>coef</th>     <th>std err</th>      <th>z</th>      <th>P>|z|</th>  <th>[0.025</th>    <th>0.975]</th>  \n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>intercept</th>            <td>   -2.0040</td> <td>    0.036</td> <td>  -55.008</td> <td> 0.000</td> <td>   -2.075</td> <td>   -1.933</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>ab_page</th>              <td>   -0.0674</td> <td>    0.052</td> <td>   -1.297</td> <td> 0.195</td> <td>   -0.169</td> <td>    0.034</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>UK</th>                   <td>    0.0118</td> <td>    0.040</td> <td>    0.296</td> <td> 0.767</td> <td>   -0.066</td> <td>    0.090</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>interactions_uk_page</th> <td>    0.0783</td> <td>    0.057</td> <td>    1.378</td> <td> 0.168</td> <td>   -0.033</td> <td>    0.190</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>CA</th>                   <td>    0.0175</td> <td>    0.038</td> <td>    0.465</td> <td> 0.642</td> <td>   -0.056</td> <td>    0.091</td>\n",
+       "</tr>\n",
+       "<tr>\n",
+       "  <th>interactions_ca_page</th> <td>    0.0469</td> <td>    0.054</td> <td>    0.872</td> <td> 0.383</td> <td>   -0.059</td> <td>    0.152</td>\n",
+       "</tr>\n",
+       "</table>"
+      ],
+      "text/plain": [
+       "<class 'statsmodels.iolib.summary.Summary'>\n",
+       "\"\"\"\n",
+       "                           Logit Regression Results                           \n",
+       "==============================================================================\n",
+       "Dep. Variable:              converted   No. Observations:               290584\n",
+       "Model:                          Logit   Df Residuals:                   290578\n",
+       "Method:                           MLE   Df Model:                            5\n",
+       "Date:                Thu, 20 Aug 2020   Pseudo R-squ.:               3.482e-05\n",
+       "Time:                        20:01:06   Log-Likelihood:            -1.0639e+05\n",
+       "converged:                       True   LL-Null:                   -1.0639e+05\n",
+       "                                        LLR p-value:                    0.1920\n",
+       "========================================================================================\n",
+       "                           coef    std err          z      P>|z|      [0.025      0.975]\n",
+       "----------------------------------------------------------------------------------------\n",
+       "intercept               -2.0040      0.036    -55.008      0.000      -2.075      -1.933\n",
+       "ab_page                 -0.0674      0.052     -1.297      0.195      -0.169       0.034\n",
+       "UK                       0.0118      0.040      0.296      0.767      -0.066       0.090\n",
+       "interactions_uk_page     0.0783      0.057      1.378      0.168      -0.033       0.190\n",
+       "CA                       0.0175      0.038      0.465      0.642      -0.056       0.091\n",
+       "interactions_ca_page     0.0469      0.054      0.872      0.383      -0.059       0.152\n",
+       "========================================================================================\n",
+       "\"\"\""
+      ]
+     },
+     "execution_count": 207,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#fit the model \n",
+    "df_new['intercept']=1\n",
+    "logit_mod=sm.Logit(df_new['converted'],df_new[['intercept','ab_page','UK','interactions_uk_page','CA','interactions_ca_page']])\n",
+    "results=logit_mod.fit()\n",
+    "results.summary()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "#### Conclusion and Summary Regression\n",
+    "\n",
+    "* The p_value for both the intercations is greater than 0.05.\n",
+    "* The interactions of UK to the page is not significant.\n",
+    "* The interactions of CA to the page is not significant.\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "#### Conclusions\n",
+    "There is no significant evidence that  the new_page increases the  conversion rate as compared to old_page based on the results of probability,A/B testing and regression model.Also adding country doesnt show any significant increase in the conversion rate to new page from old page."
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
